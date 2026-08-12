@@ -1,0 +1,15 @@
+{
+    "domain": "clockify",
+    "name": "Clockify",
+    "codeowners": [
+        "@yoali11"
+    ],
+    "config_flow": true,
+    "documentation": "https://github.com/yoali11/clockify",
+    "integration_type": "service",
+    "iot_class": "cloud_push",
+    "issue_tracker": "https://github.com/yoali11/clockify/issues",
+    "dependencies": [],
+    "requirements": [],
+    "version": "1.0.0"
+}

@@ -1,0 +1,39 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect Clockify",
+                "description": "Enter your Clockify API key.",
+                "data": {
+                    "api_key": "API Key"
+                }
+            },
+            "workspace": {
+                "title": "Select Workspace",
+                "description": "You have access to multiple Clockify workspaces. Select the workspace you want to track.",
+                "data": {
+                    "workspace_id": "Workspace"
+                }
+            },
+            "project": {
+                "title": "Select Project",
+                "description": "Choose the project this instance should track. Add the integration again to track another project from the same account.",
+                "data": {
+                    "project_id": "Project"
+                }
+            },
+            "webhook_urls": {
+                "title": "Clockify Webhook URLs",
+                "description": "Copy these URLs into Clockify under Preferences -> Advanced -> Webhooks.\n\nTimer Started: {started_url}\nTimer Stopped: {stopped_url}"
+            }
+        },
+        "error": {
+            "invalid_auth": "The provided API key is invalid.",
+            "cannot_connect": "Unable to connect to Clockify.",
+            "unknown": "Unexpected error occurred."
+        },
+        "abort": {
+            "already_configured": "This Clockify workspace, user, and project is already configured."
+        }
+    }
+}
