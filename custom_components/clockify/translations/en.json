@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Clockify",
+        "description": "Enter your Clockify API key. You can find it under **Profile Settings → API** in the Clockify web app.",
+        "data": {
+          "api_key": "API Key"
+        }
+      },
+      "workspace": {
+        "title": "Select Workspace",
+        "description": "Choose the Clockify workspace you want to monitor.",
+        "data": {
+          "workspace_id": "Workspace"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid API key – please check your credentials.",
+      "cannot_connect": "Unable to connect to the Clockify API.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This workspace is already configured."
+    }
+  }
+}
