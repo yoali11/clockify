@@ -28,10 +28,14 @@ A Home Assistant custom integration for [Clockify](https://clockify.me/) time tr
 
 Configuration is done via the UI:
 
-1. Go to **Settings** → **Devices & Services** → **Add Integration** and search for "Clockify".
-2. Enter your Clockify API key.
+1. Create a Clockify API key at [app.clockify.me/manage-api-keys](https://app.clockify.me/manage-api-keys) and copy it.
+2. In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integration**, search for "Clockify", and paste in the API key.
 3. Select the workspace and project you want to track.
-4. Copy the generated webhook URLs into Clockify under **Preferences** → **Advanced** → **Webhooks**.
+4. Home Assistant will generate two webhook URLs (one for timer started, one for timer stopped). Go to [app.clockify.me/webhooks](https://app.clockify.me/webhooks) and create two webhooks, pasting in the matching URL for each:
+   - **Timer started (anyone)** → the "started" URL
+   - **Timer stopped (anyone)** → the "stopped" URL
+
+Webhooks let Clockify push timer changes to Home Assistant instantly instead of the integration having to poll the Clockify API on a schedule, which keeps API usage low and avoids hitting Clockify's rate limits, even on a free-tier.
 
 ## License
 
