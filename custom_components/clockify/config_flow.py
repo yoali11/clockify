@@ -15,6 +15,7 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
+    CLOCKIFY_API_BASE_URL,
     CONF_PROJECT_ID,
     CONF_PROJECT_NAME,
     CONF_STARTED_WEBHOOK_ID,
@@ -185,14 +186,14 @@ class ClockifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             async with asyncio.timeout(10):
-                async with session.get("https://api.clockify.me/api/v1/user", headers=headers) as response:
+                async with session.get(f"{CLOCKIFY_API_BASE_URL}/user", headers=headers) as response:
                     if response.status in (401, 403):
                         raise InvalidAuth
                     if response.status >= 400:
                         raise CannotConnect
                     user_data = await response.json()
 
-                async with session.get("https://api.clockify.me/api/v1/workspaces", headers=headers) as response:
+                async with session.get(f"{CLOCKIFY_API_BASE_URL}/workspaces", headers=headers) as response:
                     if response.status in (401, 403):
                         raise InvalidAuth
                     if response.status >= 400:
@@ -212,7 +213,7 @@ class ClockifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Fetch the list of projects available on the given workspace."""
         session = async_get_clientsession(self.hass)
         headers = {"X-Api-Key": api_key}
-        url = f"https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects"
+        url = f"{CLOCKIFY_API_BASE_URL}/workspaces/{workspace_id}/projects"
 
         try:
             async with asyncio.timeout(10):

@@ -21,7 +21,15 @@ CONF_STOPPED_WEBHOOK_URL = "stopped_webhook_url"
 # Defaults
 DEFAULT_NAME = "Clockify Timer"
 
+# Clockify API
+CLOCKIFY_API_BASE_URL = "https://api.clockify.me/api/v1"
+
 
 def get_update_signal(entry_id: str) -> str:
     """Return the entry-scoped dispatcher signal used for entity updates."""
     return f"{DOMAIN}_{entry_id}_update"
+
+
+def get_in_progress_time_entries_url(workspace_id: str, user_id: str) -> str:
+    """Return the endpoint URL for fetching a user's in-progress time entries."""
+    return f"{CLOCKIFY_API_BASE_URL}/workspaces/{workspace_id}/user/{user_id}/time-entries?in-progress=true"

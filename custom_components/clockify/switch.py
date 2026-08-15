@@ -14,6 +14,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CLOCKIFY_API_BASE_URL,
     CONF_API_KEY,
     CONF_PROJECT_ID,
     CONF_USER_ID,
@@ -136,7 +137,7 @@ class ClockifySwitch(ClockifyEntity, SwitchEntity):
 
         async with session.request(
             method.upper(),
-            f"https://api.clockify.me/api/v1{endpoint}",
+            f"{CLOCKIFY_API_BASE_URL}{endpoint}",
             headers=headers,
             json=json,
             timeout=10,

@@ -16,6 +16,7 @@ from .const import (
     CONF_USER_ID,
     CONF_WORKSPACE_ID,
     DOMAIN,
+    get_in_progress_time_entries_url,
 )
 from .webhook import async_setup_webhooks, async_unregister_webhooks
 
@@ -76,7 +77,7 @@ async def _async_fetch_initial_state(hass: HomeAssistant, entry_data: dict[str, 
         return
 
     session = async_get_clientsession(hass)
-    url = f"https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/{user_id}/time-entries?in-progress=true"
+    url = get_in_progress_time_entries_url(workspace_id, user_id)
     headers = {"X-Api-Key": api_key}
 
     try:
