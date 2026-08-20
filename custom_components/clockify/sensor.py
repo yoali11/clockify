@@ -35,6 +35,7 @@ async def async_setup_entry(
         ClockifySummarySensor(entry, "today", "Hours Today"),
         ClockifySummarySensor(entry, "week", "Hours This Week"),
         ClockifySummarySensor(entry, "month", "Hours This Month"),
+        ClockifySummarySensor(entry, "year", "Hours This Year"),
     ]
     async_add_entities(entities)
 
@@ -256,6 +257,10 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
             )
         elif self._period_type == "month":
             start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        elif self._period_type == "year":
+            start_dt = now.replace(
+                month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+            )
         else:
             start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
