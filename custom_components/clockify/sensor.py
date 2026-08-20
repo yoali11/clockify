@@ -23,6 +23,9 @@ _LOGGER = logging.getLogger(__name__)
 # Poll summary statistics every 5 minutes so hours-worked totals stay current
 SCAN_INTERVAL = timedelta(minutes=5)
 
+# Clockify's Free plan rejects summary report requests spanning more than 31 days
+MAX_REPORT_RANGE_DAYS = 30
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -94,7 +97,7 @@ class ClockifySensor(ClockifyEntity, SensorEntity):
 
 
 class ClockifySummarySensor(ClockifyEntity, SensorEntity):
-    """Expose aggregated hours worked (today, week, month) from Clockify API."""
+    """Expose aggregated hours worked (today, week, month, year) from Clockify API."""
 
     _attr_native_unit_of_measurement = "h"
     _attr_state_class = SensorStateClass.TOTAL
@@ -154,36 +157,54 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
             "X-Api-Key": api_key,
             "Content-Type": "application/json",
         }
-        body = {
-            "dateRangeStart": start_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            "dateRangeEnd": end_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-            "summaryFilter": {
-                "groups": ["USER"]
-            },
-            "users": {
-                "ids": [user_id],
-                "contains": "CONTAINS",
-                "status": "ALL"
-            },
-            "exportType": "JSON"
-        }
 
         try:
-            async with session.post(url, headers=headers, json=body, timeout=10) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    total_seconds = self._extract_total_time(data)
-                    # The report only covers stopped entries, so add the still-running timer's elapsed time
-                    total_seconds += await self._get_running_seconds(entry_data, start_dt, end_dt)
-                    self._attr_native_value = round(total_seconds / 3600.0, 2)
-                else:
-                    _LOGGER.warning(
-                        "Clockify summary report API returned status %s for %s",
-                        response.status,
-                        self._period_type,
-                    )
+            total_seconds = 0.0
+            for chunk_start, chunk_end in self._split_into_chunks(start_dt, end_dt):
+                body = {
+                    "dateRangeStart": chunk_start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "dateRangeEnd": chunk_end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "summaryFilter": {
+                        "groups": ["USER"]
+                    },
+                    "users": {
+                        "ids": [user_id],
+                        "contains": "CONTAINS",
+                        "status": "ALL"
+                    },
+                    "exportType": "JSON"
+                }
+                async with session.post(url, headers=headers, json=body, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        total_seconds += self._extract_total_time(data)
+                    else:
+                        _LOGGER.warning(
+                            "Clockify summary report API returned status %s for %s (%s - %s)",
+                            response.status,
+                            self._period_type,
+                            chunk_start,
+                            chunk_end,
+                        )
+
+            # Add running timer elapsed duration
+            total_seconds += await self._get_running_seconds(entry_data, start_dt, end_dt)
+            self._attr_native_value = round(total_seconds / 3600.0, 2)
         except Exception as err:
             _LOGGER.warning("Failed to fetch Clockify %s summary: %s", self._period_type, err)
+
+    def _split_into_chunks(
+        self, start_dt: datetime, end_dt: datetime
+    ) -> list[tuple[datetime, datetime]]:
+        """Split a date range into <=MAX_REPORT_RANGE_DAYS chunks for the summary report API."""
+        chunks: list[tuple[datetime, datetime]] = []
+        max_span = timedelta(days=MAX_REPORT_RANGE_DAYS)
+        chunk_start = start_dt
+        while chunk_start < end_dt:
+            chunk_end = min(chunk_start + max_span, end_dt)
+            chunks.append((chunk_start, chunk_end))
+            chunk_start = chunk_end
+        return chunks
 
     async def _get_running_seconds(
         self, entry_data: dict[str, Any], start_dt: datetime, end_dt: datetime
@@ -246,22 +267,19 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
 
     def _get_period_bounds(self) -> tuple[datetime, datetime]:
         """Calculate local start and end bounds converted to UTC."""
-        now = dt_util.now()
-        end_dt = now
+        now = dt_util.now().replace(microsecond=0)
 
         if self._period_type == "today":
-            start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_dt = now.replace(hour=0, minute=0, second=0)
         elif self._period_type == "week":
             start_dt = (now - timedelta(days=now.weekday())).replace(
-                hour=0, minute=0, second=0, microsecond=0
+                hour=0, minute=0, second=0
             )
         elif self._period_type == "month":
-            start_dt = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            start_dt = now.replace(day=1, hour=0, minute=0, second=0)
         elif self._period_type == "year":
-            start_dt = now.replace(
-                month=1, day=1, hour=0, minute=0, second=0, microsecond=0
-            )
+            start_dt = now.replace(month=1, day=1, hour=0, minute=0, second=0)
         else:
-            start_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_dt = now.replace(hour=0, minute=0, second=0)
 
-        return dt_util.as_utc(start_dt), dt_util.as_utc(end_dt)
+        return dt_util.as_utc(start_dt), dt_util.as_utc(now)
