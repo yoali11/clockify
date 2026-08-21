@@ -103,6 +103,9 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
     _attr_state_class = SensorStateClass.TOTAL
     _attr_icon = "mdi:clock-outline"
 
+    # Grace window to bridge Clockify's report-API replication delay after a stop
+    STOP_GRACE_SECONDS = 30
+
     def __init__(self, entry: ConfigEntry, period_type: str, name: str) -> None:
         """Initialize the Clockify summary sensor."""
         super().__init__(entry)
@@ -110,6 +113,11 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
         self._attr_name = name
         self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{period_type}_hours"
         self._attr_native_value = 0.0
+        self._last_total_seconds = 0.0
+        self._last_period_start: datetime | None = None
+        self._prev_is_running = False
+        self._grace_deadline: datetime | None = None
+        self._grace_value: float | None = None
 
     async def async_added_to_hass(self) -> None:
         """Listen for webhook updates and set up periodic polling."""
@@ -151,6 +159,25 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
 
         start_dt, end_dt = self._get_period_bounds()
 
+        if self._last_period_start != start_dt:
+            # New period (e.g. day rolled over) - discard stale grace tracking
+            self._last_total_seconds = 0.0
+            self._grace_deadline = None
+            self._grace_value = None
+            self._last_period_start = start_dt
+
+        is_running = bool(entry_data.get("is_running"))
+        just_stopped = self._prev_is_running and not is_running
+        self._prev_is_running = is_running
+
+        if just_stopped:
+            # Clockify's summary report can lag briefly behind a just-finished
+            # entry, so hold the last known total until it catches up.
+            self._grace_value = self._last_total_seconds
+            self._grace_deadline = dt_util.utcnow() + timedelta(
+                seconds=self.STOP_GRACE_SECONDS
+            )
+
         session = async_get_clientsession(self.hass)
         url = f"https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/summary"
         headers = {
@@ -189,6 +216,19 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
 
             # Add running timer elapsed duration
             total_seconds += await self._get_running_seconds(entry_data, start_dt, end_dt)
+
+            if self._grace_value is not None:
+                if (
+                    self._grace_deadline is not None
+                    and dt_util.utcnow() < self._grace_deadline
+                    and total_seconds < self._grace_value
+                ):
+                    total_seconds = self._grace_value
+                else:
+                    self._grace_value = None
+                    self._grace_deadline = None
+
+            self._last_total_seconds = total_seconds
             self._attr_native_value = round(total_seconds / 3600.0, 2)
         except Exception as err:
             _LOGGER.warning("Failed to fetch Clockify %s summary: %s", self._period_type, err)
