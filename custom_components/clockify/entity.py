@@ -12,6 +12,8 @@ class ClockifyEntity(Entity):
     """Base entity that groups Clockify entities under a per-project device."""
 
     _attr_has_entity_name = True
+    # Updates are pushed by webhooks or scheduled explicitly; HA's own polling would double API calls
+    _attr_should_poll = False
 
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize the entity and its associated device."""

@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, get_in_progress_time_entries_url, get_update_signal
+from .const import DOMAIN, get_update_signal
 from .entity import ClockifyEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -206,6 +206,7 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
                         data = await response.json()
                         total_seconds += self._extract_total_time(data)
                     else:
+                        # Keep the previous value rather than publishing a partial total
                         _LOGGER.warning(
                             "Clockify summary report API returned status %s for %s (%s - %s)",
                             response.status,
@@ -213,9 +214,10 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
                             chunk_start,
                             chunk_end,
                         )
+                        return
 
             # Add running timer elapsed duration
-            total_seconds += await self._get_running_seconds(entry_data, start_dt, end_dt)
+            total_seconds += self._get_running_seconds(entry_data, start_dt, end_dt)
 
             if self._grace_value is not None:
                 if (
@@ -246,41 +248,18 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
             chunk_start = chunk_end
         return chunks
 
-    async def _get_running_seconds(
+    def _get_running_seconds(
         self, entry_data: dict[str, Any], start_dt: datetime, end_dt: datetime
     ) -> float:
-        """Fetch the live in-progress entry so edits to its start time in Clockify are reflected."""
+        """Return elapsed time of the running timer from its known start time.
+
+        The start time comes from webhooks, the switch or the boot sync, so no API
+        call is needed here (the Free plan allows only 30 regular API requests/hour).
+        """
         if not entry_data.get("is_running"):
             return 0.0
 
-        workspace_id = entry_data.get("workspace_id")
-        user_id = entry_data.get("user_id")
-        api_key = entry_data.get("api_key")
-        if not workspace_id or not user_id or not api_key:
-            return 0.0
-
-        session = async_get_clientsession(self.hass)
-        url = get_in_progress_time_entries_url(workspace_id, user_id)
-        headers = {"X-Api-Key": api_key}
-
-        try:
-            async with session.get(url, headers=headers, timeout=10) as response:
-                if response.status != 200:
-                    return 0.0
-                entries = await response.json()
-        except Exception as err:
-            _LOGGER.debug("Failed to fetch running Clockify timer: %s", err)
-            return 0.0
-
-        if not isinstance(entries, list) or not entries:
-            return 0.0
-
-        active = entries[0]
-        project_filter = entry_data.get("project_id_config") or None
-        if project_filter and active.get("projectId") != project_filter:
-            return 0.0
-
-        start_time = dt_util.parse_datetime(active.get("timeInterval", {}).get("start") or "")
+        start_time = dt_util.parse_datetime(entry_data.get("start_time") or "")
         if start_time is None:
             return 0.0
 
