@@ -26,6 +26,7 @@ from .const import (
     CONF_WORKSPACE_ID,
     DOMAIN,
 )
+from .webhook import build_webhook_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -129,7 +130,6 @@ class ClockifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not self._config_data:
                 return self.async_abort(reason="unknown")
 
-            # FIX: Correct persistent notification call
             persistent_notification.async_create(
                 self.hass,
                 title="Clockify Webhook Setup",
@@ -175,9 +175,8 @@ class ClockifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return f"{digest}_timer_started", f"{digest}_timer_stopped"
 
     def _build_webhook_urls(self, started_webhook_id: str, stopped_webhook_id: str) -> tuple[str, str]:
-        """Build display-only webhook URLs; the host is a placeholder for the user to fill in."""
-        base_url = "https://INSERT_URL/"
-        return f"{base_url}api/webhook/{started_webhook_id}", f"{base_url}api/webhook/{stopped_webhook_id}"
+        """Build the webhook URLs from Home Assistant's configured external URL."""
+        return build_webhook_url(self.hass, started_webhook_id), build_webhook_url(self.hass, stopped_webhook_id)
 
     async def _async_validate_credentials(self, api_key: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Validate provided API key and return user data + workspaces."""

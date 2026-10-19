@@ -9,7 +9,7 @@ from aiohttp import web
 from homeassistant.components import webhook
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.network import get_url
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from .const import (
     CONF_STARTED_WEBHOOK_ID,
@@ -21,6 +21,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+WEBHOOK_URL_PLACEHOLDER = "https://INSERT_URL"
 
 
 async def async_setup_webhooks(
@@ -35,8 +37,8 @@ async def async_setup_webhooks(
         entry.data.get(CONF_STOPPED_WEBHOOK_ID) or f"{entry_id}_timer_stopped"
     )
 
-    started_url = _build_webhook_url(hass, started_webhook_id)
-    stopped_url = _build_webhook_url(hass, stopped_webhook_id)
+    started_url = build_webhook_url(hass, started_webhook_id)
+    stopped_url = build_webhook_url(hass, stopped_webhook_id)
 
     entry_data[CONF_STARTED_WEBHOOK_ID] = started_webhook_id
     entry_data[CONF_STOPPED_WEBHOOK_ID] = stopped_webhook_id
@@ -77,12 +79,16 @@ def async_unregister_webhooks(hass: HomeAssistant, entry_data: dict[str, Any]) -
             webhook.async_unregister(hass, webhook_id)
 
 
-def _build_webhook_url(hass: HomeAssistant, webhook_id: str) -> str:
-    """Build the public webhook URL for a webhook ID."""
+def build_webhook_url(hass: HomeAssistant, webhook_id: str) -> str:
+    """Build the public webhook URL for a webhook ID.
+
+    Clockify calls the webhook from the internet, so the external URL is preferred.
+    Falls back to a placeholder host when Home Assistant has no URL configured.
+    """
     try:
-        base_url = get_url(hass, allow_external=True)
-    except Exception:  # pragma: no cover - defensive
-        base_url = "https://your-home-assistant-instance"
+        base_url = get_url(hass, allow_external=True, prefer_external=True)
+    except NoURLAvailableError:
+        base_url = WEBHOOK_URL_PLACEHOLDER
     if not base_url.endswith("/"):
         base_url = f"{base_url}/"
     return f"{base_url}api/webhook/{webhook_id}"
