@@ -24,7 +24,7 @@
             },
             "webhook_urls": {
                 "title": "Clockify Webhook URLs",
-                "description": "Copy these URLs into Clockify under Preferences -> Advanced -> Webhooks.\n\nTimer Started: {started_url}\nTimer Stopped: {stopped_url}"
+                "description": "Copy these URLs into Clockify under Preferences -> Advanced -> Webhooks.\n\nTimer Started: {started_url}\nTimer Stopped: {stopped_url}\n\nThe URLs use the external URL configured in Home Assistant (Settings -> System -> Network). If they start with https://INSERT_URL, no external URL is configured: replace that part with the address Clockify can reach your Home Assistant on."
             }
         },
         "error": {
