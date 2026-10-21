@@ -51,7 +51,7 @@ Each configured project gets a device named `Clockify - <project>` with these en
 | `sensor.clockify_my_project_hours_this_month` | Hours logged this month |
 | `sensor.clockify_my_project_hours_this_year` | Hours logged this year |
 
-The hours sensors refresh every 5 minutes, and immediately when a timer starts or stops.
+The hours sensors refresh immediately when a timer starts or stops, and otherwise on a schedule: today every 5 minutes, this week every 15 minutes, this month every 30 minutes and this year every hour. Longer periods need more report requests (the year is split into ~10), so they are polled less often to stay within the rate limit.
 
 ## Examples
 

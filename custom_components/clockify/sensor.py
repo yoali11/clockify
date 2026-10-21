@@ -23,6 +23,15 @@ _LOGGER = logging.getLogger(__name__)
 # Poll summary statistics every 5 minutes so hours-worked totals stay current
 SCAN_INTERVAL = timedelta(minutes=5)
 
+# Longer periods change little between polls but cost more report requests (the year
+# is split into ~10 chunks), so poll them less often to stay under the rate limit
+PERIOD_SCAN_INTERVALS = {
+    "today": SCAN_INTERVAL,
+    "week": timedelta(minutes=15),
+    "month": timedelta(minutes=30),
+    "year": timedelta(minutes=60),
+}
+
 # Clockify's Free plan rejects summary report requests spanning more than 31 days
 MAX_REPORT_RANGE_DAYS = 30
 
@@ -128,12 +137,12 @@ class ClockifySummarySensor(ClockifyEntity, SensorEntity):
                 self._handle_signal,
             )
         )
-        # Refresh stats every SCAN_INTERVAL automatically
+        # Refresh stats on a per-period interval automatically
         self.async_on_remove(
             async_track_time_interval(
                 self.hass,
                 self._async_interval_update,
-                SCAN_INTERVAL,
+                PERIOD_SCAN_INTERVALS.get(self._period_type, SCAN_INTERVAL),
             )
         )
         await self.async_update()
